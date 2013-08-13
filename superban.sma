@@ -9,7 +9,7 @@
 
 
 
-
+new GaggedPlayers[33];
 new bannedReasons[33][256];
 new Array:g_bantimes;
 new g_coloredMenus;
@@ -130,6 +130,13 @@ public delayed_plugin_cfg()
 	if(get_cvar_num("amx_superban_pconnect")) set_task(0.5, "SQL_Init_Connect");
 	if(get_cvar_num("amx_superban_sqltime")) set_task(1.0, "SQL_Time");
 	if(get_cvar_num("amx_superban_autoclear")) set_task(1.5, "Clear_Base");
+}
+
+public CheckSay(id)
+{
+	if(GaggedPlayers[id])
+		return PLUGIN_HANDLED;
+	return PLUGIN_CONTINUE;
 }
 
 public SuperBan(id, level, cid)
