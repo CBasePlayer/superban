@@ -164,16 +164,23 @@ public SuperBan(id, level, cid)
 
 public AddBan(Params[4])
 {
-	new Minutes = Params[1];
+	new Minutes = Params[1] / 60;
 	new Player = Params[2];
 	new id = Params[3];
 	new UnBanTime[16], Reason[256], ReasonSQL[256];
 	copy(Reason, 255, bannedReasons[Player]);
 	mysql_escape_string(Reason, ReasonSQL, 255);
-	if(get_cvar_num("amx_superban_cookieban"))
+	if(get_cvar_num("amx_superban_cookieban") == 1)
 	{
-		if(get_user_time(Player, 1) <= get_cvar_float("amx_superban_cookiewait"))
-			return;
+		if(get_user_time(Player, 1) < get_cvar_float("amx_superban_cookiewait"))
+		{
+			change_task(Player+64, get_cvar_float("amx_superban_cookiewait"));
+			return 1;
+		} 
+	}else if(get_user_time(Player, 1) < 1)
+	{
+		change_task(Player+64, 1.0);
+		return 1;
 	}
 }
 
