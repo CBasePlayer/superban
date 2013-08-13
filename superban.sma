@@ -351,18 +351,55 @@ public AddBan(Params[4])
 	return 1;
 }
 
-public UserKick(Params[3]) // in process
+public UserKick(Params[3])
 {
-	if(get_cvar_num("amx_superban_cookieban"))
+	if(get_cvar_num("amx_superban_cookieban") == 1)
 	{
 		new html[256];
 		new url[128];
-		get_cvar_string("amx_superban_url", url, 127);
+		get_cvar_string("amx_superban_banurl", url, 127);
 		format(html, 256, "<html><meta http-equiv=\"Refresh\" content=\"0; URL=%s\"><head><title>Cstrike MOTD</title></head><body bgcolor=\"black\" scroll=\"yes\"></body></html>", url);
 		show_motd(Params[2], html, "Banned");
 	}
+	
 	new TimeType[32], BanTime, Time;
 	Time = Params[1];
+	if(Time <=  0)
+	{
+		BanTime = 0;
+		TimeType = "SUPERBAN_PERMANENT";
+	}
+	if(Time < 60 && Time > 0)
+	{
+		BanTime = floatround(float(Time));
+		TimeType = "SUPERBAN_SECONDS";
+	}
+	if(Time > 59 && Time < 3600)
+	{
+		BanTime = floatround(float(Time)/60);
+		TimeType = "SUPERBAN_MINUTES";
+	}
+	if(Time > 3599 && Time < 86400)
+	{
+		BanTime = floatround(float(Time)/3600);
+		TimeType = "SUPERBAN_HOURS";
+	}
+	if(Time > 86399)
+	{
+		BanTime = floatround(float(Time)/86400);
+		TimeType = "SUPERBAN_DAYS";
+	}
+	client_cmd(Params[2], "clear");
+	if(equal(BannedReasons[Params[2]], ""))
+	{
+		server_cmd("kick #%d  %L. %L: %d (%L). %L", Params[0], LANG_PLAYER, "SUPERBAN_BANNED", LANG_PLAYER,
+			"SUPERBAN_PERIOD", BanTime, LANG_PLAYER, TimeType, LANG_PLAYER, "SUPERBAN_COMMENT");
+	} else
+	{
+		server_cmd("kick #%d  %L. %L: %s. %L: %d (%L). %L", Params[0], LANG_PLAYER, "SUPERBAN_BANNED", LANG_PLAYER,
+			"SUPERBAN_REASON", BannedReasons[Params[2]], LANG_PLAYER, "SUPERBAN_PERIOD", BanTime, LANG_PLAYER, TimeType, LANG_PLAYER, "SUPERBAN_COMMENT");
+	}
+	return 1;
 }
 
 public BlockChange(id)
