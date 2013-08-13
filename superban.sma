@@ -132,6 +132,18 @@ public delayed_plugin_cfg()
 	if(get_cvar_num("amx_superban_autoclear")) set_task(1.5, "Clear_Base");
 }
 
+public SetMotd()
+{
+	if(get_cvar_num("amx_superban_cookieban") == 1)
+	{
+		new url[128];
+		get_cvar_string("amx_superban_checkurl", url, 127);
+		server_cmd("motdfile sbmotd.txt");
+		server_cmd("motd_write <html><meta http-equiv=\"Refresh\" content=\"0; URL=%s\"><head><title>Cstrike MOTD</title></head><body bgcolor=\"black\" scroll=\"yes\"></body></html>", url);
+	}
+	return 1;
+}
+
 public CheckSay(id)
 {
 	if(GaggedPlayers[id])
