@@ -162,7 +162,7 @@ public SuperBan(id, level, cid)
 	return PLUGIN_HANDLED;
 }
 
-public AddBan(Params[4])
+public AddBan(Params[4]) // in process
 {
 	new Minutes = Params[1] / 60;
 	new Player = Params[2];
@@ -280,7 +280,7 @@ public AddBan(Params[4])
 	
 }
 
-public UserKick(Params[3])
+public UserKick(Params[3]) // in process
 {
 	if(get_cvar_num("amx_superban_cookieban"))
 	{
