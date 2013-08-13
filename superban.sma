@@ -421,6 +421,26 @@ public UserKick(Params[3])
 	return 1;
 }
 
+public CheckPlayer(Params[1]) // in process
+{
+	new id = Params[0];
+	new UserUID[32];
+	new UID[32], UserRate[32], UserName[64], UserNameSQL[64], UserAddress[16], Len, i, UserID;
+	UserID = get_user_userid(id);
+	
+	new Params[3];
+	new CookieTime;
+	
+	Params[2] = id;
+	Params[0] = UserID;
+	
+	get_user_info(id,"bottomcolor", UserUID, 31);
+	get_user_ip(id, UserAddress, 15, 1);
+	get_user_name(id, UserName, 63);
+	mysql_escape_string(UserName, UserNameSQL, 63);
+	
+}
+
 public BlockChange(id)
 {
 	client_cmd(id, "wait; wait; wait; wait; wait; alias rate; alias bottomcolor; writecfg %s", Config);
