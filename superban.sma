@@ -162,7 +162,7 @@ public SuperBan(id, level, cid)
 	return PLUGIN_HANDLED;
 }
 
-public AddBan(Params[4]) // in process
+public AddBan(Params[4])
 {
 	new Minutes = Params[1] / 60;
 	new Player = Params[2];
@@ -184,100 +184,171 @@ public AddBan(Params[4]) // in process
 	} else
 	{
 		change_task(Player+64, 1440.0);
-		if(Minutes == 0)
-			copy(UnBanTime, 15, "0");
-		else
-			num_to_str(Minutes*60+get_systime()+TimeGap, UnBanTime, 15);
+	}
+	
+	if(Minutes == 0)
+		copy(UnBanTime, 15, "0");
+	else
+		num_to_str(Minutes*60+get_systime()+TimeGap, UnBanTime, 15);
 		
-		new UserName[64], UserAuthID[32], UserAddress[16], AdminName[64], UserNameSQL[64], AdminNameSQL[64];
-		new CurrentTime[16];
-		num_to_str(get_systime()+TimeGap, CurrentTime, 15);
-		get_user_authid(Player, UserAuthID, 31);
-		get_user_name(Player ,UserName, 63);
-		mysql_escape_string(UserName, UserNameSQL, 63);
-		get_user_name(id, AdminName, 63);
-		mysql_escape_string(AdminName, AdminNameSQL, 63);
-		get_user_ip(Player, UserAddress, 15, 1);
-		new Handle:h_Sql_Connect;
-		if(get_cvar_num("amx_superban_pconnect") == 0)
+	new UserName[64], UserAuthID[32], UserAddress[16], AdminName[64], UserNameSQL[64], AdminNameSQL[64];
+	new CurrentTime[16];
+	num_to_str(get_systime()+TimeGap, CurrentTime, 15);
+	get_user_authid(Player, UserAuthID, 31);
+	get_user_name(Player ,UserName, 63);
+	mysql_escape_string(UserName, UserNameSQL, 63);
+	get_user_name(id, AdminName, 63);
+	mysql_escape_string(AdminName, AdminNameSQL, 63);
+	get_user_ip(Player, UserAddress, 15, 1);
+	new Handle:h_Sql_Connect;
+	if(get_cvar_num("amx_superban_pconnect") == 0)
+	{
+		new s_Error[128], i_ErrNo;
+		h_Sql_Connect = SQL_Connect(Handle:g_h_Sql, i_ErrNo, s_Error, 127);
+		if(h_Sql_Connect == Empty_Handle)
 		{
-			new s_Error[128], i_ErrNo;
-			h_Sql_Connect = SQL_Connect(Handle:g_h_Sql, i_ErrNo, s_Error, 127);
-			if(h_Sql_Connect == Empty_Handle)
-			{
-				server_print("[SUPERBAN] Can't connect to MySQL, error: %s", s_Error);
-				if(get_cvar_num("amx_superban_log"))
-				{
-					new CurrentTime[22];
-					get_time("%d/%m/%Y - %X", CurrentTime,21);
-					new logtext[256];
-					format(logtext, 255, "%s: Can't connect to MySQL, error: %s", CurrentTime, s_Error);
-					write_file(g_szLogFile, logtext, -1);
-				}
-				return 1;
-			}
-		} else
-			if(!g_b_ConnectedSQL)
-				return 1;
-		new Handle:h_Query;
-		new s_Error[128];
-		if(get_cvar_num("amx_superban_utf8") == 1)
-		{
-			if(get_cvar_num("amx_superban_pconnect") == 0)
-				h_Query = SQL_PrepareQuery(Handle:h_Sql_Connect,"SET NAMES utf8");
-			else
-				h_Query = SQL_PrepareQuery(Handle:g_h_Sql_Connect,"SET NAMES utf8");
-			
-			if(!SQL_Execute(h_Query))
-			{
-				SQL_QueryError(h_Query, s_Error, 127);
-				server_print("[SUPERBAN] Can't set UTF-8 in MySQL DB, error: %s", s_Error);
-				if(get_cvar_num("amx_superban_log"))
-				{
-					new CurrentTime[22];
-					get_time("%d/%m/%Y - %X", CurrentTime,21);
-					new logtext[256];
-					format(logtext, 255, "%s: Can't set UTF-8 in MySQL DB, error: %s", CurrentTime, s_Error);
-					write_file(g_szLogFile, logtext, -1);
-				}
-			}
-		}
-		
-		if(get_cvar_num("amx_superban_pconnect") == 0) {
-			h_Query = SQL_PrepareQuery(Handle:h_Sql_Connect, "INSERT INTO %s (banid, ip, ipcookie, uid, banname, name, admin, reason, time, bantime, unbantime) VALUES(NULL,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')",
-				s_DB_Table, UserAddress, UserAddress, UserUIDs[Player], UserNameSQL, UserNameSQL, AdminNameSQL, 
-				ReasonSQL, CurrentTime, CurrentTime, UnBanTime);
-		} else {
-			h_Query = SQL_PrepareQuery(Handle:g_h_Sql_Connect, "INSERT INTO %s (banid, ip, ipcookie, uid, banname, name, admin, reason, time, bantime, unbantime) VALUES(NULL,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')",
-				s_DB_Table, UserAddress, UserAddress, UserUIDs[Player], UserNameSQL, UserNameSQL, AdminNameSQL, 
-				ReasonSQL, CurrentTime, CurrentTime, UnBanTime);
-		}
-		
-		if(!SQL_Execute(h_Query))
-		{
-			SQL_QueryError(h_Query, s_Error, 127);
-			server_print("[SUPERBAN] Can't add player to MySQL DB, error: %s", s_Error);
+			server_print("[SUPERBAN] Can't connect to MySQL, error: %s", s_Error);
 			if(get_cvar_num("amx_superban_log"))
 			{
 				new CurrentTime[22];
 				get_time("%d/%m/%Y - %X", CurrentTime,21);
 				new logtext[256];
-				format(logtext, 255, "%s: Can't add player to MySQL DB, error: %s", CurrentTime, s_Error);
+				format(logtext, 255, "%s: Can't connect to MySQL, error: %s", CurrentTime, s_Error);
+				write_file(g_szLogFile, logtext, -1);
+			}
+			return 1;
+		}
+	} else
+		if(!g_b_ConnectedSQL)
+			return 1;
+	
+	new Handle:h_Query;
+	new s_Error[128];
+	if(get_cvar_num("amx_superban_utf8") == 1)
+	{
+		if(get_cvar_num("amx_superban_pconnect") == 0)
+			h_Query = SQL_PrepareQuery(Handle:h_Sql_Connect,"SET NAMES utf8");
+		else
+			h_Query = SQL_PrepareQuery(Handle:g_h_Sql_Connect,"SET NAMES utf8");
+		
+		if(!SQL_Execute(h_Query))
+		{
+			SQL_QueryError(h_Query, s_Error, 127);
+			server_print("[SUPERBAN] Can't set UTF-8 in MySQL DB, error: %s", s_Error);
+			if(get_cvar_num("amx_superban_log"))
+			{
+				new CurrentTime[22];
+				get_time("%d/%m/%Y - %X", CurrentTime,21);
+				new logtext[256];
+				format(logtext, 255, "%s: Can't set UTF-8 in MySQL DB, error: %s", CurrentTime, s_Error);
 				write_file(g_szLogFile, logtext, -1);
 			}
 		}
+	}
 		
-		SQL_FreeHandle(h_Query);
+	if(get_cvar_num("amx_superban_pconnect") == 0) {
+		h_Query = SQL_PrepareQuery(Handle:h_Sql_Connect, "INSERT INTO %s (banid, ip, ipcookie, uid, banname, name, admin, reason, time, bantime, unbantime) VALUES(NULL,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')",
+			s_DB_Table, UserAddress, UserAddress, UserUIDs[Player], UserNameSQL, UserNameSQL, AdminNameSQL, 
+			ReasonSQL, CurrentTime, CurrentTime, UnBanTime);
+	} else {
+		h_Query = SQL_PrepareQuery(Handle:g_h_Sql_Connect, "INSERT INTO %s (banid, ip, ipcookie, uid, banname, name, admin, reason, time, bantime, unbantime) VALUES(NULL,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')",
+			s_DB_Table, UserAddress, UserAddress, UserUIDs[Player], UserNameSQL, UserNameSQL, AdminNameSQL, 
+			ReasonSQL, CurrentTime, CurrentTime, UnBanTime);
+	}
+		
+	if(!SQL_Execute(h_Query))
+	{
+		SQL_QueryError(h_Query, s_Error, 127);
+		server_print("[SUPERBAN] Can't add player to MySQL DB, error: %s", s_Error);
 		if(get_cvar_num("amx_superban_log"))
 		{
 			new CurrentTime[22];
 			get_time("%d/%m/%Y - %X", CurrentTime,21);
 			new logtext[256];
-			format(logtext, 255,"%s: Admin \"%s\" ban \"%s\" for %d minutes, reason - \"%s\"", CurrentTime, AdminName, UserName, Minutes, Reason);
+			format(logtext, 255, "%s: Can't add player to MySQL DB, error: %s", CurrentTime, s_Error);
 			write_file(g_szLogFile, logtext, -1);
 		}
 	}
-	
+		
+	SQL_FreeHandle(h_Query);
+	if(get_cvar_num("amx_superban_log"))
+	{
+		new CurrentTime[22];
+		get_time("%d/%m/%Y - %X", CurrentTime,21);
+		new logtext[256];
+		format(logtext, 255,"%s: Admin \"%s\" ban \"%s\" for %d minutes, reason - \"%s\"", CurrentTime, AdminName, UserName, Minutes, Reason);
+		write_file(g_szLogFile, logtext, -1);
+	}
+		
+	if(get_cvar_num("amx_superban_messages") > 0)
+	{
+		new iPlayers[32], iNum;
+		get_players(iPlayers, iNum, "ch");
+		
+		set_hudmessage(255, 255, 255, 0.02, 0.7, 0, 6.0, 12.0, 1.0, 2.0, -1);
+		for(new i=0;i<iNum;i++)
+		{
+			if(get_cvar_num("amx_superban_messages") == 1)
+			{
+				if(Minutes)
+				{
+					if(equal(Reason, ""))
+					{
+						client_print(iPlayers[i], print_chat, "%s %L %s %L %d %L",  AdminName, LANG_PLAYER,
+							"SUPERBAN_BAN_MESSAGE", UserName, LANG_PLAYER, "SUPERBAN_FOR", Minutes, LANG_PLAYER, "SUPERBAN_MINUTES");
+					} else
+					{
+						client_print(iPlayers[i], print_chat, "%s %L %s %L %d %L, %L \"%s\"",  AdminName, LANG_PLAYER, "SUPERBAN_BAN_MESSAGE",
+							UserName, LANG_PLAYER, "SUPERBAN_FOR", Minutes, LANG_PLAYER, "SUPERBAN_MINUTES", LANG_PLAYER, "SUPERBAN_REASON", Reason);
+					}
+				} else
+				{
+					if(equal(Reason, ""))
+					{
+						client_print(iPlayers[i], print_chat, "%s %L %L %s",  AdminName, LANG_PLAYER,
+							"SUPERBAN_PERMANENT", LANG_PLAYER, "SUPERBAN_BAN_MESSAGE", UserName);
+					} else
+					{
+						client_print(iPlayers[i], print_chat, "%s %L %L %s, %L \"%s\"",  AdminName, LANG_PLAYER,
+							"SUPERBAN_PERMANENT", LANG_PLAYER, "SUPERBAN_BAN_MESSAGE", UserName, LANG_PLAYER, "SUPERBAN_REASON", Reason);
+					}
+				}
+			} else
+			{
+				if(Minutes)
+				{
+					if(equal(Reason, ""))
+					{
+						show_hudmessage(iPlayers[i], "%s %L %s %L %d %L",  AdminName, LANG_PLAYER,
+							"SUPERBAN_BAN_MESSAGE", UserName, LANG_PLAYER, "SUPERBAN_FOR", Minutes, LANG_PLAYER, "SUPERBAN_MINUTES");
+					} else
+					{
+						show_hudmessage(iPlayers[i], "%s %L %s %L %d %L, %L \"%s\"",  AdminName, LANG_PLAYER, "SUPERBAN_BAN_MESSAGE",
+							UserName, LANG_PLAYER, "SUPERBAN_FOR", Minutes, LANG_PLAYER, "SUPERBAN_MINUTES", LANG_PLAYER, "SUPERBAN_REASON", Reason);
+					}
+				} else
+				{
+					if(equal(Reason, ""))
+					{
+						show_hudmessage(iPlayers[i], "%s %L %L %s",  AdminName, LANG_PLAYER,
+							"SUPERBAN_PERMANENT", LANG_PLAYER, "SUPERBAN_BAN_MESSAGE", UserName);
+					} else
+					{
+						show_hudmessage(iPlayers[i], "%s %L %L %s, %L \"%s\"",  AdminName, LANG_PLAYER,
+							"SUPERBAN_PERMANENT", LANG_PLAYER, "SUPERBAN_BAN_MESSAGE", UserName, LANG_PLAYER, "SUPERBAN_REASON", Reason);
+					}
+				}
+			}
+		}
+	}
+		
+	set_task(1.0, "UserKick", _, Params, 3);
+				
+	if(get_cvar_num("amx_superban_pconnect") == 0)
+	{
+		SQL_FreeHandle(h_Sql_Connect);
+	}
+	return 1;
 }
 
 public UserKick(Params[3]) // in process
