@@ -424,9 +424,8 @@ public UserKick(Params[3])
 public CheckPlayer(Params[1]) // in process
 {
 	new id = Params[0];
-	new UserUID[32];
-	new UID[32], UserRate[32], UserName[64], UserNameSQL[64], UserAddress[16], Len, i, UserID;
-	UserID = get_user_userid(id);
+	new UserUID[32], UID[32], UserRate[32], UserName[64], UserNameSQL[64], UserAddress[16], Len, i;
+	new UserID = get_user_userid(id);
 	
 	new Params[3];
 	new CookieTime;
@@ -435,10 +434,182 @@ public CheckPlayer(Params[1]) // in process
 	Params[0] = UserID;
 	
 	get_user_info(id,"bottomcolor", UserUID, 31);
+	get_user_info(id, "rate", UserRate, 31);
 	get_user_ip(id, UserAddress, 15, 1);
 	get_user_name(id, UserName, 63);
 	mysql_escape_string(UserName, UserNameSQL, 63);
 	
+	if(strlen(UserRate) > 10)
+	{
+		Len = strlen(UserRate) - 10;
+		for(i=0;i<10;i++) { UserRate[i] = UserRate[i+Len]; }
+		for(i=10;i<Len+10;i++) UserRate[i] = 0;
+		for(i=48;i<58;i++) {
+			if(UserRate[0] == i)
+			{
+				copy(UserRate, 31, "");
+			}
+		}
+		if(equal(UserRate, "cvar_float"))
+		{
+			copy(UserRate, 31, "");
+		}
+	} else
+	{
+		copy(UserRate, 31, "");
+	}
+	
+	if(strlen(UserUID) > 10)
+	{
+		Len = strlen(UserUID) - 10;
+		for(i=0;i<10;i++) { UserUID[i] = UserUID[i+Len]; }
+		for(i=10;i<Len+10;i++) UserUID[i] = 0;
+		for(i=48;i<58;i++) {
+			if(UserUID[0] == i)
+			{
+				copy(UserUID, 31, "");
+			}
+		}
+		if(equal(UserUID, "cvar_float"))
+		{
+			copy(UserUID, 31, "");
+		}
+	} else
+	{
+		copy(UserUID, 31, "");
+	}
+	
+	UserUIDs[id] = UserUID;
+	
+	if(get_cvar_num("amx_superban_log") == 2)
+	{
+		new CurrentTime[22];
+		get_time("%d/%m/%Y - %X", CurrentTime, 21);
+		new logtext[256];
+		format(logtext, 255, "%s: Connected player \"%s\" (IP \"%s\", UID \"%s\", RateID \"%s\")", CurrentTime, UserName, UserAddress, UserUID, UserRate);
+		write_file(g_szLogFile, logtext, -1);
+	}
+	
+	new Handle:h_Sql_Connect;
+	if(get_cvar_num("amx_superban_pconnect") == 0)
+	{
+		new s_Error[128], i_ErrNo;
+		h_Sql_Connect = SQL_Connect(g_h_Sql, i_ErrNo, s_Error, 127);
+		if(h_Sql_Connect == Empty_Handle)
+		{
+			server_print("[SUPERBAN] Can't connect to MySQL, error: %s", s_Error);
+			if(get_cvar_num("amx_superban_log"))
+			{
+				new CurrentTime[22];
+				get_time("%d/%m/%Y - %X", CurrentTime,21);
+				new logtext[256];
+				format(logtext, 255, "%s: Can't connect to MySQL, error: %s", CurrentTime, s_Error);
+				write_file(g_szLogFile, logtext, -1);
+			}
+			return 1;
+		}
+	} else
+		if(!g_b_ConnectedSQL)
+			return 1;
+	
+	if(get_cvar_num("amx_superban_ipban") == 1)
+	{
+		new Handle:h_Query;
+		if(get_cvar_num("amx_superban_pconnect") == 0)
+		{
+			h_Query = SQL_PrepareQuery(h_Sql_Connect,"SELECT banid, uid, bantime, unbantime, reason, banname FROM %s WHERE ip='%s' ORDER BY banid DESC", s_DB_Table, UserAddress);
+		} else
+		{
+			h_Query = SQL_PrepareQuery(g_h_Sql_Connect,"SELECT banid, uid, bantime, unbantime, reason, banname FROM %s WHERE ip='%s' ORDER BY banid DESC", s_DB_Table, UserAddress);
+		}
+		
+		new s_Error[128];
+		if(!SQL_Execute(h_Query))
+		{
+			SQL_QueryError(h_Query, s_Error, 127);
+			server_print("[SUPERBAN] Can't check player IP on MySQL DB, error: %s", s_Error);
+			if(get_cvar_num("amx_superban_log"))
+			{
+				new CurrentTime[22];
+				get_time("%d/%m/%Y - %X", CurrentTime,21);
+				new logtext[256];
+				format(logtext, 255, "%s: Can't check player IP on MySQL DB, error: %s", CurrentTime, s_Error);
+				write_file(g_szLogFile, logtext, -1);
+			}
+		} else
+		{
+			new s_BanTime[32], s_UnBanTime[32], s_UID[32], s_Reason[256], s_BanName[64];
+			new i_Col_UID = SQL_FieldNameToNum(h_Query, "uid");
+			new i_Col_BanTime = SQL_FieldNameToNum(h_Query, "bantime");
+			new i_Col_UnBanTime = SQL_FieldNameToNum(h_Query,"unbantime");
+			new i_Col_Reason = SQL_FieldNameToNum(h_Query,"reason");
+			new i_Col_BanName = SQL_FieldNameToNum(h_Query, "banname");
+			if(SQL_MoreResults(h_Query) != 0)
+			{
+				SQL_ReadResult(h_Query, i_Col_UID, s_UID, 31);
+				SQL_ReadResult(h_Query, i_Col_BanTime, s_BanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_UnBanTime, s_UnBanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_Reason, s_Reason, 255);
+				SQL_ReadResult(h_Query, i_Col_BanName, s_BanName, 63);
+				SQL_FreeHandle(h_Query);
+				if((get_systime() + TimeGap - str_to_num(s_BanTime))/60 < get_cvar_num("amx_superban_iptime")
+					&& ((str_to_num(s_UnBanTime) > get_systime() + TimeGap) || equal(s_UnBanTime, "0")))
+				{
+					WriteUID(id, s_UID);
+					WriteRate(id, s_UID);
+					BlockChange(id);
+					num_to_str(get_systime() + TimeGap, s_BanTime, 31);
+					Params[1] = str_to_num(s_UnBanTime) - (get_systime() + TimeGap);
+					
+					BannedReasons[id] = s_Reason;
+					set_task(1.0,"UserKick", _, Params, 3);
+					if(get_cvar_num("amx_superban_pconnect") == 0)
+					{
+						h_Query = SQL_PrepareQuery(h_Sql_Connect,"UPDATE %s SET name='%s', ipcookie='%s', bantime='%s' WHERE ip='%s'", s_DB_Table, UserNameSQL, UserAddress, s_BanTime, UserAddress);
+					} else
+					{
+						h_Query = SQL_PrepareQuery(g_h_Sql_Connect,"UPDATE %s SET name='%s', ipcookie='%s', bantime='%s' WHERE ip='%s'", s_DB_Table, UserNameSQL, UserAddress, s_BanTime, UserAddress);
+					}
+					new s_Error[128];
+					if(!SQL_Execute(h_Query))
+					{
+						SQL_QueryError(h_Query, s_Error, 127);
+						server_print("[SUPERBAN] Can't update player info on MySQL DB, error: %s", s_Error);
+						if(get_cvar_num("amx_superban_log"))
+						{
+							new CurrentTime[22];
+							get_time("%d/%m/%Y - %X", CurrentTime,21);
+							new logtext[256];
+							format(logtext, 255, "%s: Can't update player info on MySQL DB, error: %s", CurrentTime, s_Error);
+							write_file(g_szLogFile, logtext, -1);
+						}
+					}
+					SQL_FreeHandle(h_Query);
+					
+					if(get_cvar_num("amx_superban_log"))
+					{
+						new CurrentTime[22];
+						get_time("%d/%m/%Y - %X", CurrentTime,21);
+						new logtext[256];
+						format(logtext, 255, "%s: Player \"%s\" (%s) is kicked because its IP in ban list (IP \"%s\", UID \"%s\", RateID \"%s\")", CurrentTime, UserName, s_BanName, UserAddress, UserUID, UserRate);
+						write_file(g_szLogFile, logtext, -1);
+					}
+					
+					return 1;
+				}
+			}
+		}
+	}
+	
+	if(get_cvar_num("amx_superban_cookieban") == 1)
+	{
+		new Handle:h_Query;
+		if(get_cvar_num("amx_superban_sqltime") == 1)
+		{
+			CookieTime = get_systime() + TimeGap;
+		}
+		h_Query = Empty_Handle;
+	}
 }
 
 public BlockChange(id)
