@@ -6,9 +6,6 @@
 #pragma ctrlchar '\'
 
 
-
-
-
 new GaggedPlayers[33];
 new bannedReasons[33][256];
 new Array:g_bantimes;
@@ -17,6 +14,7 @@ new Config[128];
 new Handle:g_h_Sql;
 new g_szLogFile[64];
 new s_DB_Table[64];
+
 
 public plugin_init()
 {
