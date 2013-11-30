@@ -651,11 +651,351 @@ public CheckPlayer(Params[1]) // in process
 				if(str_to_num(s_BanTime) > get_systime() + TimeGap || equal(s_UnBanTime, "0"))
 				{
 					WriteUID(id, UID);
-					WriteRate(id,UID);
+					WriteRate(id, UID);
 					BlockChange(id);
+					num_to_str(get_systime()+TimeGap, s_BanTime, 31);
+					Params[1] = str_to_num(s_UnBanTime) - (get_systime() + TimeGap);
+					BannedReasons[id] = s_Reason;
+					set_task(1.0, "UserKick", 0, Params, 3);
 					
+					if(get_cvar_num("amx_superban_pconnect") == 0)
+					{
+						h_Query = SQL_PrepareQuery(h_Sql_Connect, "UPDATE %s SET ip='%s', name='%s', bantime='%s' WHERE ipcookie='%s'", s_DB_Table, UserAddress, UserNameSQL, s_BanTime, UserAddress);
+					} else
+					{
+						h_Query = SQL_PrepareQuery(g_h_Sql_Connect, "UPDATE %s SET ip='%s', name='%s', bantime='%s' WHERE ipcookie='%s'", s_DB_Table, UserAddress, UserNameSQL, s_BanTime, UserAddress);
+					}
+					
+					new s_Error[128];
+					if(!SQL_Execute(h_Query))
+					{
+						SQL_QueryError(h_Query, s_Error, 127);
+						server_print("[SUPERBAN] Can't update player info on MySQL DB, error: %s", s_Error);
+						if(get_cvar_num("amx_superban_log"))
+						{
+							new CurrentTime[22];
+							get_time("%d/%m/%Y - %X", CurrentTime,21);
+							new logtext[256];
+							format(logtext, 255, "%s: Can't update player info on MySQL DB, error: %s", CurrentTime, s_Error);
+							write_file(g_szLogFile, logtext, -1);
+						}
+					}
+					SQL_FreeHandle(h_Query);
+					
+					if(get_cvar_num("amx_superban_log"))
+					{
+						new CurrentTime[22];
+						get_time("%d/%m/%Y - %X", CurrentTime, 21);
+						new logtext[256];
+						format(logtext, 255, "%s: Player \"%s\" (%s) is kicked because its Cookie IP in ban list (IP \"%s\", UID \"%s\", RateID \"%s\")", CurrentTime, UserName, s_BanName, UserAddress, UserUID, UserRate);
+						write_file(g_szLogFile, logtext, -1);
+					}
+					
+					return 1;
 				}
 			}
+		}
+	}
+		
+		
+	if(strlen(UserUID) == 10)
+	{
+		new Handle:h_Query;
+		
+		if(get_cvar_num("amx_superban_pconnect") == 0)
+		{
+			h_Query = SQL_PrepareQuery(h_Sql_Connect, "SELECT banid, bantime, unbantime, reason, banname FROM %s WHERE uid='%s' ORDER BY banid DESC", s_DB_Table, UserUID);
+		} else
+		{
+			h_Query = SQL_PrepareQuery(g_h_Sql_Connect, "SELECT banid, bantime, unbantime, reason, banname FROM %s WHERE uid='%s' ORDER BY banid DESC", s_DB_Table, UserUID);
+		}
+		
+		new s_Error[128];
+		if(!SQL_Execute(h_Query))
+		{
+			SQL_QueryError(h_Query, s_Error, 127);
+			server_print("[SUPERBAN] Can't check player UID on MySQL DB, error: %s", s_Error);
+			if(get_cvar_num("amx_superban_log"))
+			{
+				new CurrentTime[22];
+				get_time("%d/%m/%Y - %X", CurrentTime, 21);
+				new logtext[256];
+				format(logtext, 255, "%s: Can't check player UID on MySQL DB, error: %s", CurrentTime, s_Error);
+				write_file(g_szLogFile, logtext, -1);
+			}
+		} else
+		{
+			new s_BanTime[32], s_UnBanTime[32], s_Reason[256], s_BanName[64];
+			new i_Col_BanTime = SQL_FieldNameToNum(h_Query, "bantime");
+			new i_Col_UnBanTime = SQL_FieldNameToNum(h_Query, "unbantime");
+			new i_Col_Reason = SQL_FieldNameToNum(h_Query, "reason");
+			new i_Col_BanName = SQL_FieldNameToNum(h_Query, "banname");
+			
+			if(SQL_MoreResults(h_Query) != 0)
+			{
+				SQL_ReadResult(h_Query, i_Col_BanTime, s_BanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_UnBanTime, s_UnBanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_Reason, s_Reason, 255);
+				SQL_ReadResult(h_Query, i_Col_BanName, s_BanName, 63);
+				SQL_FreeHandle(h_Query);
+				
+				if(str_to_num(s_BanTime) > get_systime() + TimeGap || equal(s_UnBanTime, "0"))
+				{
+					WriteRate(id, UserUID);
+					BlockChange(id);
+					num_to_str(get_systime()+TimeGap, s_BanTime, 31);
+					Params[1] = str_to_num(s_UnBanTime) - (get_systime() + TimeGap);
+					BannedReasons[id] = s_Reason;
+					set_task(1.0, "UserKick", 0, Params, 3);
+					
+					if(get_cvar_num("amx_superban_pconnect") == 0)
+					{
+						h_Query = SQL_PrepareQuery(h_Sql_Connect, "UPDATE %s SET ip='%s', name='%s', ipcookie='%s', bantime='%s' WHERE uid='%s'", s_DB_Table, UserAddress, UserNameSQL, UserAddress, s_BanTime, UserUID);
+					} else
+					{
+						h_Query = SQL_PrepareQuery(g_h_Sql_Connect, "UPDATE %s SET ip='%s', name='%s', ipcookie='%s', bantime='%s' WHERE uid='%s'", s_DB_Table, UserAddress, UserNameSQL, UserAddress, s_BanTime, UserUID);
+					}
+					
+					new s_Error[128];
+					if(!SQL_Execute(h_Query))
+					{
+						SQL_QueryError(h_Query, s_Error, 127);
+						server_print("[SUPERBAN] Can't update player info on MySQL DB, error: %s", s_Error);
+						if(get_cvar_num("amx_superban_log"))
+						{
+							new CurrentTime[22];
+							get_time("%d/%m/%Y - %X", CurrentTime,21);
+							new logtext[256];
+							format(logtext, 255, "%s: Can't update player info on MySQL DB, error: %s", CurrentTime, s_Error);
+							write_file(g_szLogFile, logtext, -1);
+						}
+					}
+					SQL_FreeHandle(h_Query);
+					
+					if(get_cvar_num("amx_superban_log"))
+					{
+						new CurrentTime[22];
+						get_time("%d/%m/%Y - %X", CurrentTime, 21);
+						new logtext[256];
+						format(logtext, 255, "%s: Player \"%s\" (%s) is kicked because its UID in ban list (IP \"%s\", UID \"%s\", RateID \"%s\")", CurrentTime, UserName, s_BanName, UserAddress, UserUID, UserRate);
+						write_file(g_szLogFile, logtext, -1);
+					}
+					
+					return 1;
+				}
+			}
+		}
+	}
+	
+	if(strlen(UserRate) == 10)
+	{
+		new Handle:h_Query;
+		
+		if(get_cvar_num("amx_superban_pconnect") == 0)
+		{
+			h_Query = SQL_PrepareQuery(h_Sql_Connect, "SELECT banid, bantime, unbantime, reason, banname FROM %s WHERE uid='%s' ORDER BY banid DESC", s_DB_Table, UserRate);
+		} else
+		{
+			h_Query = SQL_PrepareQuery(g_h_Sql_Connect, "SELECT banid, bantime, unbantime, reason, banname FROM %s WHERE uid='%s' ORDER BY banid DESC", s_DB_Table, UserRate);
+		}
+		
+		new s_Error[128];
+		if(!SQL_Execute(h_Query))
+		{
+			SQL_QueryError(h_Query, s_Error, 127);
+			server_print( "[SUPERBAN] Can't check player RateID on MySQL DB, error: %s", s_Error);
+			if(get_cvar_num("amx_superban_log"))
+			{
+				new CurrentTime[22];
+				get_time("%d/%m/%Y - %X", CurrentTime, 21);
+				new logtext[256];
+				format(logtext, 255,  "Can't check player RateID on MySQL DB, error: %s", CurrentTime, s_Error);
+				write_file(g_szLogFile, logtext, -1);
+			}
+		} else
+		{
+			new s_BanTime[32], s_UnBanTime[32], s_Reason[256], s_BanName[64];
+			new i_Col_BanTime = SQL_FieldNameToNum(h_Query, "bantime");
+			new i_Col_UnBanTime = SQL_FieldNameToNum(h_Query, "unbantime");
+			new i_Col_Reason = SQL_FieldNameToNum(h_Query, "reason");
+			new i_Col_BanName = SQL_FieldNameToNum(h_Query, "banname");
+			
+			if(SQL_MoreResults(h_Query) != 0)
+			{
+				SQL_ReadResult(h_Query, i_Col_BanTime, s_BanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_UnBanTime, s_UnBanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_Reason, s_Reason, 255);
+				SQL_ReadResult(h_Query, i_Col_BanName, s_BanName, 63);
+				SQL_FreeHandle(h_Query);
+				
+				if(str_to_num(s_UnBanTime) > get_systime() + TimeGap || equal(s_UnBanTime, "0"))
+				{
+					WriteRate(id, UserRate);
+					BlockChange(id);
+					num_to_str(get_systime()+TimeGap, s_BanTime, 31);
+					Params[1] = str_to_num(s_UnBanTime) - (get_systime() + TimeGap);
+					BannedReasons[id] = s_Reason;
+					set_task(1.0, "UserKick", 0, Params, 3);
+					
+					if(get_cvar_num("amx_superban_pconnect") == 0)
+					{
+						h_Query = SQL_PrepareQuery(h_Sql_Connect, "UPDATE %s SET ip='%s', name='%s', ipcookie='%s', bantime='%s' WHERE uid='%s'", s_DB_Table, UserAddress, UserNameSQL, UserAddress, s_BanTime, UserRate);
+					} else
+					{
+						h_Query = SQL_PrepareQuery(g_h_Sql_Connect, "UPDATE %s SET ip='%s', name='%s', ipcookie='%s', bantime='%s' WHERE uid='%s'", s_DB_Table, UserAddress, UserNameSQL, UserAddress, s_BanTime, UserRate);
+					}
+					
+					new s_Error[128];
+					if(!SQL_Execute(h_Query))
+					{
+						SQL_QueryError(h_Query, s_Error, 127);
+						server_print("[SUPERBAN] Can't update player info on MySQL DB, error: %s", s_Error);
+						if(get_cvar_num("amx_superban_log"))
+						{
+							new CurrentTime[22];
+							get_time("%d/%m/%Y - %X", CurrentTime,21);
+							new logtext[256];
+							format(logtext, 255, "%s: Can't update player info on MySQL DB, error: %s", CurrentTime, s_Error);
+							write_file(g_szLogFile, logtext, -1);
+						}
+					}
+					SQL_FreeHandle(h_Query);
+					
+					if(get_cvar_num("amx_superban_log"))
+					{
+						new CurrentTime[22];
+						get_time("%d/%m/%Y - %X", CurrentTime, 21);
+						new logtext[256];
+						format(logtext, 255, "%s: Player \"%s\" (%s) is kicked because its RateID in ban list (IP \"%s\", UID \"%s\", RateID \"%s\")", CurrentTime, UserName, s_BanName, UserAddress, UserUID, UserRate);
+						write_file(g_szLogFile, logtext, -1);
+					}
+					
+					return 1;
+				}
+			}
+		}
+	}
+	
+	if(strlen(UserUID) != 10 && strlen(UserRate) != 10 && !equal(UserName, "Player") && !equal(UserName, "unnamed"))
+	{
+		new Handle:h_Query;
+		
+		if(get_cvar_num("amx_superban_pconnect") == 0)
+		{
+			h_Query = SQL_PrepareQuery(h_Sql_Connect, "SELECT banid, uid, bantime, unbantime, reason, banname FROM %s WHERE name='%s' ORDER BY banid DESC", s_DB_Table, UserNameSQL);
+		} else
+		{
+			h_Query = SQL_PrepareQuery(g_h_Sql_Connect, "SELECT banid, uid, bantime, unbantime, reason, banname FROM %s WHERE name='%s' ORDER BY banid DESC", s_DB_Table, UserNameSQL);
+		}
+		
+		new s_Error[128];
+		if(!SQL_Execute(h_Query))
+		{
+			SQL_QueryError(h_Query, s_Error, 127);
+			server_print( "[SUPERBAN] Can't check player name on MySQL DB, error: %s", s_Error);
+			if(get_cvar_num("amx_superban_log"))
+			{
+				new CurrentTime[22];
+				get_time("%d/%m/%Y - %X", CurrentTime, 21);
+				new logtext[256];
+				format(logtext, 255,  "Can't check player name on MySQL DB, error: %s", CurrentTime, s_Error);
+				write_file(g_szLogFile, logtext, -1);
+			}
+		} else
+		{
+			new s_BanTime[32], s_UnBanTime[32], s_UID[32], s_Reason[256], s_BanName[64];
+			new i_Col_UID = SQL_FieldNameToNum(h_Query, "uid");
+			new i_Col_BanTime = SQL_FieldNameToNum(h_Query, "bantime");
+			new i_Col_UnBanTime = SQL_FieldNameToNum(h_Query, "unbantime");
+			new i_Col_Reason = SQL_FieldNameToNum(h_Query, "reason");
+			new i_Col_BanName = SQL_FieldNameToNum(h_Query, "banname");
+			
+			if(SQL_MoreResults(h_Query) != 0)
+			{
+				SQL_ReadResult(h_Query, i_Col_UID, s_UID, 31);
+				SQL_ReadResult(h_Query, i_Col_BanTime, s_BanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_UnBanTime, s_UnBanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_Reason, s_Reason, 255);
+				SQL_ReadResult(h_Query, i_Col_BanName, s_BanName, 63);
+				SQL_FreeHandle(h_Query);
+				
+				if((get_systime(0) + TimeGap - str_to_num(s_BanTime))/60 < get_cvar_num("amx_superban_nametime") && (str_to_num(s_UnBanTime) > get_systime() + TimeGap || equal(s_UnBanTime, "0")))
+				{
+					WriteUID(id, UID);
+					WriteRate(id, UID);
+					BlockChange(id);
+					num_to_str(get_systime()+TimeGap, s_BanTime, 31);
+					BannedReasons[id] = s_Reason;
+					Params[1] = str_to_num(s_UnBanTime) - (get_systime() + TimeGap);
+					set_task(1.0, "UserKick", 0, Params, 3);
+					
+					if(get_cvar_num("amx_superban_pconnect") == 0)
+					{
+						h_Query = SQL_PrepareQuery(h_Sql_Connect, "UPDATE %s SET ip='%s', ipcookie='%s', bantime='%s' WHERE uid='%s'", s_DB_Table, UserAddress, UserAddress,s_BanTime, s_UID);
+					} else
+					{
+						h_Query = SQL_PrepareQuery(g_h_Sql_Connect, "UPDATE %s SET ip='%s', ipcookie='%s', bantime='%s' WHERE uid='%s'", s_DB_Table, UserAddress, UserAddress,s_BanTime, s_UID);
+					}
+					
+					new s_Error[128];
+					if(!SQL_Execute(h_Query))
+					{
+						SQL_QueryError(h_Query, s_Error, 127);
+						server_print("[SUPERBAN] Can't update player info on MySQL DB, error: %s", s_Error);
+						if(get_cvar_num("amx_superban_log"))
+						{
+							new CurrentTime[22];
+							get_time("%d/%m/%Y - %X", CurrentTime,21);
+							new logtext[256];
+							format(logtext, 255, "%s: Can't update player info on MySQL DB, error: %s", CurrentTime, s_Error);
+							write_file(g_szLogFile, logtext, -1);
+						}
+					}
+					SQL_FreeHandle(h_Query);
+					
+					if(get_cvar_num("amx_superban_log"))
+					{
+						new CurrentTime[22];
+						get_time("%d/%m/%Y - %X", CurrentTime, 21);
+						new logtext[256];
+						format(logtext, 255, "%s: Player \"%s\" (%s) is kicked because his name in ban list (IP \"%s\", UID \"%s\", RateID \"%s\")", CurrentTime, UserName, s_BanName, UserAddress, UserUID, UserRate);
+						write_file(g_szLogFile, logtext, -1);
+					}
+					
+					return 1;
+				}
+			}
+		}
+	}
+	
+	if(!equal(UserName, "Player") && !equal(UserName, "unnamed"))
+	{
+		new Handle:h_Query;
+		
+		if(get_cvar_num("amx_superban_pconnect") == 0)
+		{
+			h_Query = SQL_PrepareQuery(h_Sql_Connect, "SELECT banid, uid, bantime, unbantime, reason, banname FROM %s WHERE banname='%s' ORDER BY banid DESC", s_DB_Table, UserNameSQL);
+		} else
+		{
+			h_Query = SQL_PrepareQuery(g_h_Sql_Connect, "SELECT banid, uid, bantime, unbantime, reason, banname FROM %s WHERE banname='%s' ORDER BY banid DESC", s_DB_Table, UserNameSQL);
+		}
+		
+		new s_Error[128];
+		if(!SQL_Execute(h_Query))
+		{
+			SQL_QueryError(h_Query, s_Error, 127);
+			server_print( "[SUPERBAN] Can't check player name on MySQL DB, error: %s", s_Error);
+			if(get_cvar_num("amx_superban_log"))
+			{
+				new CurrentTime[22];
+				get_time("%d/%m/%Y - %X", CurrentTime, 21);
+				new logtext[256];
+				format(logtext, 255,  "Can't check player name on MySQL DB, error: %s", CurrentTime, s_Error);
+				write_file(g_szLogFile, logtext, -1);
+			}
+		} else
+		{
+			
 		}
 	}
 }
