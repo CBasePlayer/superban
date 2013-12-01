@@ -419,7 +419,7 @@ public UserKick(Params[3])
 	return 1;
 }
 
-public CheckPlayer(Params[1]) // in process
+public CheckPlayer(Params[1])
 {
 	new id = Params[0];
 	new UserUID[32], UID[32], UserRate[32], UserName[64], UserNameSQL[64], UserAddress[16], Len, i;
@@ -995,9 +995,113 @@ public CheckPlayer(Params[1]) // in process
 			}
 		} else
 		{
+			new s_BanTime[32], s_UnBanTime[32], s_UID[32], s_Reason[256], s_BanName[64];
 			
+			new i_Col_UID = SQL_FieldNameToNum(h_Query, "uid");
+			new i_Col_BanTime = SQL_FieldNameToNum(h_Query, "bantime");
+			new i_Col_UnBanTime = SQL_FieldNameToNum(h_Query, "unbantime");
+			new i_Col_Reason = SQL_FieldNameToNum(h_Query, "reason");
+			new i_Col_BanName = SQL_FieldNameToNum(h_Query, "banname");
+			
+			if(SQL_MoreResults(h_Query) != 0)
+			{
+				SQL_ReadResult(h_Query, i_Col_UID, s_UID, 31);
+				SQL_ReadResult(h_Query, i_Col_BanTime, s_BanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_UnBanTime, s_UnBanTime, 31);
+				SQL_ReadResult(h_Query, i_Col_Reason, s_Reason, 255);
+				SQL_ReadResult(h_Query, i_Col_BanName, s_BanName, 63);
+				SQL_FreeHandle(h_Query);
+				
+				if(str_to_num(s_UnBanTime) > get_systime()+TimeGap || equal(s_UnBanTime, "0"))
+				{
+					BannedReasons[id] = s_Reason;
+					Params[1] = str_to_num(s_UnBanTime) - (get_systime()+TimeGap);
+					set_task(1.0, "UserKick", 0, Params, 3);
+					
+					if(get_cvar_num("amx_superban_log"))
+					{
+						new CurrentTime[22];
+						get_time("%d/%m/%Y - %X", CurrentTime, 21);
+						new logtext[256];
+						format(logtext, 255, "%s: Player \"%s\" (%s) is kicked because his name in ban list (IP \"%s\", UID \"%s\", RateID \"%s\")", CurrentTime, UserName, s_BanName, UserAddress, UserUID, UserRate);
+						write_file(g_szLogFile, logtext, -1);
+					}
+					
+					return 1;
+				}
+			}
 		}
 	}
+	
+	if(get_cvar_num("amx_superban_pconnect") == 0)
+	{
+		SQL_FreeHandle(h_Sql_Connect);
+	}
+	
+	if(strlen(UserUID) != 10 && strlen(UserRate) != 10)
+	{
+		UID = CreateUID(id);
+		UserUIDs[id] = UID;
+		WriteRate(id, UID);
+		WriteUID(id, UID);
+		
+		if(get_cvar_num("amx_superban_log") == 2)
+		{
+			new CurrentTime[22];
+			get_time("%d/%m/%Y - %X", CurrentTime, 21);
+			new logtext[256];
+			format(logtext, 255, "%s: Player \"%s\" gets UID and RateID \"%s\"", CurrentTime, UserName, UID);
+			write_file(g_szLogFile, logtext, -1);
+		}
+	}
+	
+	if(strlen(UserUID) != 10 || strlen(UserRate) != 10)
+	{
+		if(strlen(UserUID) == 10)
+		{
+			WriteRate(id, UserUID);
+			UserUIDs[id] = UserUID;
+			
+			if(get_cvar_num("amx_superban_log") == 2)
+			{
+				new CurrentTime[22];
+				get_time("%d/%m/%Y - %X", CurrentTime, 21);
+				new logtext[256];
+				format(logtext, 255, "%s: Player \"%s\" gets RateID \"%s\"", CurrentTime, UserName, UID);
+				write_file(g_szLogFile, logtext, -1);
+			}
+		}
+		
+		if(strlen(UserRate) == 10)
+		{
+			WriteUID(id, UserRate);
+			UserUIDs[id] = UserRate;
+			
+			if(get_cvar_num("amx_superban_log") == 2)
+			{
+				new CurrentTime[22];
+				get_time("%d/%m/%Y - %X", CurrentTime, 21);
+				new logtext[256];
+				format(logtext, 255, "%s: Player \"%s\" gets UID \"%s\"", CurrentTime, UserName, UserRate);
+				write_file(g_szLogFile, logtext, -1);
+			}
+		}
+	}
+	
+	if(strlen(UserUID) == 10 && strlen(UserRate) == 10)
+	{
+		if(!equal(UserUID, UserRate))
+		{
+			WriteUID(id, UserRate);
+			UserUIDs[id] = UserRate;
+		}
+	}
+	
+	BlockChange(id);
+	GaggedPlayers[id] = 0;
+	if(is_user_connected(id))
+		set_speak(id, SpeakStatuses[id]);
+	return 1;
 }
 
 public BlockChange(id)
